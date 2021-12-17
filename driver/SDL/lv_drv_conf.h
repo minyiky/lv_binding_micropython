@@ -83,7 +83,7 @@
  *-------------------*/
 #define USE_MONITOR         1
 #if USE_MONITOR
-#define MONITOR_HOR_RES     320
+#define MONITOR_HOR_RES     480
 #define MONITOR_VER_RES     240
 #define MONITOR_ZOOM        4                       /* Scale window by this factor (useful when simulating small screens) */
 #define MONITOR_SDL_INCLUDE_PATH    <SDL2/SDL.h>    /*Eclipse: <SDL2/SDL.h>    Visual Studio: <SDL.h>*/
@@ -189,6 +189,13 @@
  *-------------------------------------*/
 #define USE_MOUSE       1
 #if USE_MOUSE
+/*No settings*/
+#endif
+/*---------------------------------------
+ * Touchscreen on PC (using SDL)
+ *-------------------------------------*/
+#define USE_TOUCH       1
+#if USE_TOUCH
 /*No settings*/
 #endif
 /*-------------------------------------------
