@@ -18,6 +18,7 @@
 #include <string.h>
 #include MONITOR_SDL_INCLUDE_PATH
 #include "SDL_mouse.h"
+#include "SDL_touch.h"
 
 /*********************
  *      DEFINES

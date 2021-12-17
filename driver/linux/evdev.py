@@ -30,6 +30,7 @@ class crosshair_cursor:
         self.cursor_ver.delete()
 
 # evdev driver for mouse
+
 class mouse_indev:
     def __init__(self, scr=None, cursor=None, device='/dev/input/mice'):
 
@@ -80,3 +81,4 @@ class mouse_indev:
         if self.cursor and hasattr(self.cursor, 'delete'):
             self.cursor.delete()
         self.indev.enable(False)
+
