@@ -1,5 +1,12 @@
 #
-# Library of function for image manipulation.
+# Important:
+# This is a JS specific version of imagetools.py
+# without native emitter since JS port doesnt support
+# "native" and "viper" decorators.
+# Other ports should use the imagetools.py from /lib
+#
+#
+# Library of functions for image manipulation.
 # Can be used with lodepng to decode PNG images:
 #
 #     from imagetools import get_png_info, open_png
@@ -7,15 +14,10 @@
 #     decoder.info_cb = get_png_info
 #     decoder.open_cb = open_png
 #
-# Support transparency (alpha)
-#
-# TODO:
-# - Support more color formats
-#
 
 import lvgl as lv
 import lodepng as png
-import struct
+import ustruct
 
 COLOR_SIZE = lv.color_t.__SIZE__
 COLOR_IS_SWAPPED = hasattr(lv.color_t().ch,'green_h')
@@ -30,7 +32,6 @@ class lodepng_error(RuntimeError):
 # Parse PNG file header
 # Taken from https://github.com/shibukawa/imagesize_py/blob/ffef30c1a4715c5acf90e8945ceb77f4a2ed2d45/imagesize.py#L63-L85
 
-@micropython.native
 def get_png_info(decoder, src, header):
     # Only handle variable image types
 
@@ -50,8 +51,8 @@ def get_png_info(decoder, src, header):
         else:
             start = 8
         try:
-            width, height = struct.unpack(">LL", png_header[start:start+8])
-        except struct.error:
+            width, height = ustruct.unpack(">LL", png_header[start:start+8])
+        except ustruct.error:
             return lv.RES.INV
     else:
         return lv.RES.INV
@@ -63,65 +64,13 @@ def get_png_info(decoder, src, header):
 
     return lv.RES.OK
 
-# Convert color formats
-
-@micropython.viper
-def convert_rgba8888_to_bgra5658(img_view):
-    p = ptr32(img_view)
-    p_out = ptr8(img_view)
-    img_size = int(len(img_view)) // 4
-    for i in range(0, img_size):
-        r = p[i] & 0xFF
-        g = (p[i] >> 8) & 0xFF
-        b = (p[i] >> 16) & 0xFF
-        a = (p[i] >> 24) & 0xFF
-        i_out = i*3
-        p_out[i_out] = \
-            ((b & 0b11111000) >> 3) |\
-            ((g & 0b00011100) << 3)
-        p_out[i_out + 1] = \
-            ((g & 0b11100000) >> 5) |\
-            ((r & 0b11111000) )
-        p_out[i_out + 2] = a
-
-@micropython.viper
-def convert_rgba8888_to_swapped_bgra5658(img_view):
-    p = ptr32(img_view)
-    p_out = ptr8(img_view)
-    img_size = int(len(img_view)) // 4
-    for i in range(0, img_size):
-        r = p[i] & 0xFF
-        g = (p[i] >> 8) & 0xFF
-        b = (p[i] >> 16) & 0xFF
-        a = (p[i] >> 24) & 0xFF
-        i_out = i*3
-        p_out[i_out] = \
-            ((g & 0b11100000) >> 5) |\
-            ((r & 0b11111000) )
-        p_out[i_out + 1] = \
-            ((b & 0b11111000) >> 3) |\
-            ((g & 0b00011100) << 3)
-        p_out[i_out + 2] = a
-
-@micropython.viper
 def convert_rgba8888_to_bgra8888(img_view):
-    p = ptr32(img_view)
-    img_size = int(len(img_view)) // 4
-    for i in range(0, img_size):
-        r = p[i] & 0xFF
-        g = (p[i] >> 8) & 0xFF
-        b = (p[i] >> 16) & 0xFF
-        a = (p[i] >> 24) & 0xFF
-        p[i] = \
-            (b) |\
-            (g << 8) |\
-            (r << 16) |\
-            (a << 24)
-
+    for i in range(0, len(img_view), lv.color_t.__SIZE__):
+        ch = lv.color_t.__cast__(img_view[i:i]).ch
+        ch.red, ch.blue = ch.blue, ch.red
 
 # Read and parse PNG file
 
-@micropython.native
 def open_png(decoder, dsc):
     img_dsc = lv.img_dsc_t.__cast__(dsc.src)
     png_data = img_dsc.data
@@ -138,11 +87,6 @@ def open_png(decoder, dsc):
 
     if COLOR_SIZE == 4:
         convert_rgba8888_to_bgra8888(img_view)
-    elif COLOR_SIZE == 2:
-        if COLOR_IS_SWAPPED:
-            convert_rgba8888_to_swapped_bgra5658(img_view)
-        else:
-            convert_rgba8888_to_bgra5658(img_view)
     else:
         raise lodepng_error("Error: Color mode not supported yet!")
 

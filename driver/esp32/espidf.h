@@ -1,7 +1,7 @@
 /**
  * This file defines the Micorpython API to ESP-IDF
  * It is used as input to gen_mpy.py to create a micropython module
- **/ 
+ **/
 #if __has_include("esp_idf_version.h")
 #   include "esp_idf_version.h"
 #endif
@@ -10,6 +10,8 @@
 
 #ifdef PYCPARSER
 #define __attribute__(x)
+#define _Static_assert(x,y)
+#define __extension__
 #define _SOC_IO_MUX_REG_H_
 #define _SYS_REENT_H_
 #define PORTMACRO_H
@@ -33,18 +35,21 @@
 #define LWIP_HDR_NETIF_H
 #define ESP_EVENT_H_
 #define __SNTP_H__
+#define XTENSA_CONFIG_CORE_H
+#define _SOC_SPI_MEM_STRUCT_H_
 
 typedef int	BaseType_t;
 typedef unsigned int	UBaseType_t;
 typedef void* system_event_t;
+typedef void *intr_handle_t;
 
 // Exclude SOC just because it contains large structs that don't interest the user
 #define _SOC_SPI_PERIPH_H_
 typedef void *spi_dev_t;
 
-// TODO: Check why lldesc_t causes inifinite recursion on gen_mpy.py 
+// TODO: Check why lldesc_t causes inifinite recursion on gen_mpy.py
 #define _ROM_LLDESC_H_
-typedef void *lldesc_t; 
+typedef void *lldesc_t;
 
 // FreeRTOS definitions we want available on Micropython
 #include <stdint.h>
@@ -86,7 +91,7 @@ static inline void SPH0645_WORKAROUND(int i2s_num)
 //
 static inline void get_ccount(int *ccount)
 {
-	asm volatile("rsr.ccount %0" : "=a"(*ccount));
+    asm volatile("rsr.ccount %0" : "=a"(*ccount));
 }
 
 
@@ -96,7 +101,19 @@ static inline void get_ccount(int *ccount)
 // All included files are API we want to include in the module
 
 #if defined(ESP_IDF_VERSION_MAJOR) && ESP_IDF_VERSION_MAJOR >= 4
+#   if CONFIG_IDF_TARGET_ESP32
 #   include "esp32/clk.h"
+#   elif CONFIG_IDF_TARGET_ESP32S2
+#   include "esp32s2/clk.h"
+#   elif CONFIG_IDF_TARGET_ESP32S3
+#   include "esp32s3/clk.h"
+#   elif CONFIG_IDF_TARGET_ESP32C3
+#   include "esp32c3/clk.h"
+#   elif CONFIG_IDF_TARGET_ESP32H2
+#   include "esp32h2/clk.h"
+#   else // CONFIG_IDF_TARGET_* not defined
+#   include "esp32/clk.h"
+#   endif
 #else
 #   include "esp_clk.h"
 #endif
@@ -196,9 +213,16 @@ enum {
 };
 
 enum {
+    ENUM_MALLOC_CAP_EXEC = MALLOC_CAP_EXEC,
+    ENUM_MALLOC_CAP_32BIT = MALLOC_CAP_32BIT,
+    ENUM_MALLOC_CAP_8BIT = MALLOC_CAP_8BIT,
     ENUM_MALLOC_CAP_DMA = MALLOC_CAP_DMA,
-    ENUM_MALLOC_CAP_INTERNAL = MALLOC_CAP_INTERNAL,
     ENUM_MALLOC_CAP_SPIRAM = MALLOC_CAP_SPIRAM,
+    ENUM_MALLOC_CAP_INTERNAL = MALLOC_CAP_INTERNAL,
+    ENUM_MALLOC_CAP_DEFAULT = MALLOC_CAP_DEFAULT,
+    // Missing on espidf v4.02:
+    // ENUM_MALLOC_CAP_IRAM_8BIT = MALLOC_CAP_IRAM_8BIT,
+    ENUM_MALLOC_CAP_INVALID = MALLOC_CAP_INVALID,
 };
 
 enum {

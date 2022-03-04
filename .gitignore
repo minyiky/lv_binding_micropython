@@ -1,5 +1,8 @@
-*.swp
 lextab.py
 yacctab.py
+*.swp
 *.swo
+*.swn
 *.bak
+.history
+.vscode
