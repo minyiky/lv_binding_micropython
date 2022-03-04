@@ -3,86 +3,73 @@ Original author: mhepp(https://forum.lvgl.io/u/mhepp/summary)
 '''
 
 import lvgl as lv
-import uerrno
 import ustruct as struct
 
-def fs_open_cb(drv, fs_file, path, mode):
-    p_mode = ''
-    if mode == 1:
-        p_mode = 'wb'
-    elif mode == 2:
-        p_mode = 'rb'
-    elif mode == 3:
-        p_mode = 'rb+'
+def fs_open_cb(drv, path, mode):
 
-    if p_mode == '':
-        print("fs_open_callback() - open mode error, {} is invalid mode".format(mode))
-        return lv.FS_RES.INV_PARAM
+    if mode == lv.FS_MODE.WR:
+        p_mode = 'wb'
+    elif mode == lv.FS_MODE.RD:
+        p_mode = 'rb'
+    elif mode == lv.FS_MODE.WR | lv.FS_MODE.RD:
+        p_mode = 'rb+'
+    else:
+        raise RuntimeError("fs_open_callback() - open mode error, %s is invalid mode" % mode)
 
     try:
         f = open(path, p_mode)
-        ptr = lv.C_Pointer.cast(fs_file)
-        ptr.ptr_val = {'file' : f}
-    except Exception as e:
-        print("fs_open_callback() exception: ", uerrno.errorcode[e.args[0]])
-        return lv.FS_RES.FS_ERR
 
-    return lv.FS_RES.OK
+    except OSError as e:
+        raise RuntimeError("fs_open_callback(%s) exception: %s" % (path, e))
+
+    return {'file' : f, 'path': path}
 
 
 def fs_close_cb(drv, fs_file):
     try:
-        fs_file.cast()['file'].close()
-    except Exception as e:
-        print("fs_close_callback() exception ", uerrno.errorcode[e.args[0]])
-        return lv.FS_RES.FS_ERR
+        fs_file.__cast__()['file'].close()
+    except OSError as e:
+        raise RuntimeError("fs_close_callback(%s) exception: %s" % (fs_file.__cast__()['path'], e))
 
     return lv.FS_RES.OK
 
 
 def fs_read_cb(drv, fs_file, buf, btr, br):
     try:
-        tmp_data = fs_file.cast()['file'].read(btr)
-        # tmp_len = len(tmp_data)
+        tmp_data = fs_file.__cast__()['file'].read(btr)
         buf.__dereference__(btr)[0:len(tmp_data)] = tmp_data
         br.__dereference__(4)[0:4] = struct.pack("<L", len(tmp_data))
-
-    except Exception as e:
-        print("fs_read_callback() exception ", uerrno.errorcode[e.args[0]])
-        return lv.FS_RES.FS_ERR
+    except OSError as e:
+        raise RuntimeError("fs_read_callback(%s) exception %s" % (fs_file.__cast__()['path'], e))
 
     return lv.FS_RES.OK
 
 
-def fs_seek_cb(drv, fs_file, pos):
+def fs_seek_cb(drv, fs_file, pos, whence):
     try:
-        # to =
-        fs_file.cast()['file'].seek(pos, 0)
-    except Exception as e:
-        print("fs_seek_callback() exception ", uerrno.errorcode[e.args[0]])
-        return lv.FS_RES.FS_ERR
+        fs_file.__cast__()['file'].seek(pos, whence)
+    except OSError as e:
+        raise RuntimeError("fs_seek_callback(%s) exception %s" % (fs_file.__cast__()['path'], e))
 
     return lv.FS_RES.OK
 
 
 def fs_tell_cb(drv, fs_file, pos):
     try:
-        tpos = fs_file.cast()['file'].tell()
+        tpos = fs_file.__cast__()['file'].tell()
         pos.__dereference__(4)[0:4] = struct.pack("<L", tpos)
-    except Exception as e:
-        print("fs_tell_callback() exception ", uerrno.errorcode[e.args[0]])
-        return lv.FS_RES.FS_ERR
+    except OSError as e:
+        raise RuntimeError("fs_tell_callback(%s) exception %s" % (fs_file.__cast__()['path'], e))
 
     return lv.FS_RES.OK
 
 
 def fs_write_cb(drv, fs_file, buf, btw, bw):
     try:
-        wr = fs_file.cast()['file'].write(buf[0:btw])
+        wr = fs_file.__cast__()['file'].write(buf.__dereference__(btw)[0:btw])
         bw.__dereference__(4)[0:4] = struct.pack("<L", wr)
-    except Exception as e:
-        print("fs_write_callback() exception ", uerrno.errorcode[e.args[0]])
-        return lv.FS_RES.FS_ERR
+    except OSError as e:
+        raise RuntimeError("fs_write_callback(%s) exception %s" % (fs_file.__cast__()['path'], e))
 
     return lv.FS_RES.OK
 
@@ -99,3 +86,4 @@ def fs_register(fs_drv, letter):
     fs_drv.close_cb = fs_close_cb
 
     fs_drv.register()
+

@@ -1,33 +1,50 @@
+import usys as sys
+sys.path.append('') # See: https://github.com/micropython/micropython/issues/6419
+
 import lvgl as lv
-lv.init()
+
+try:
+    import lv_utils
+    lv_utils_available = True
+except:
+    lv_utils_available = False
 
 ORIENT_LANDSCAPE = False
 ORIENT_PORTRAIT  = True
 
 class driver:
     
-    def __init__(self,width=420,height=320,orientation=ORIENT_PORTRAIT):
+    def __init__(self,width=420,height=320,orientation=ORIENT_PORTRAIT, asynchronous=False, exception_sink=None):
+
+        if not lv.is_initialized():
+            lv.init()
+
         self.width = width
         self.height = height
         self.orientation = orientation
+        self.asynchronous = asynchronous
+        self.exception_sink = exception_sink
         self.disp = None
         self.touch = None
         self.type = None
-        self.init_gui()
-        
+        if not (lv_utils_available and lv_utils.event_loop.is_running()):
+            self.init_gui()
+
     def init_gui_SDL(self):
 
         import SDL
-        SDL.init(w=self.width,h=self.height)
+        SDL.init(w=self.width, h=self.height, auto_refresh=(not lv_utils_available))
+        if lv_utils_available:
+            self.event_loop = lv_utils.event_loop(refresh_cb = SDL.refresh, asynchronous=self.asynchronous, exception_sink=self.exception_sink)
 
         # Register SDL display driver.
 
-        disp_buf1 = lv.disp_buf_t()
+        disp_buf1 = lv.disp_draw_buf_t()
         buf1_1 = bytearray(self.width*10)
         disp_buf1.init(buf1_1, None, len(buf1_1)//4)
         disp_drv = lv.disp_drv_t()
         disp_drv.init()
-        disp_drv.buffer = disp_buf1
+        disp_drv.draw_buf = disp_buf1
         disp_drv.flush_cb = SDL.monitor_flush
         disp_drv.hor_res = self.width
         disp_drv.ver_res = self.height
@@ -46,13 +63,14 @@ class driver:
         
     def init_gui_ili9341(self):
 
-        import lvesp32
-
         # Initialize ILI9341 display
 
         from ili9XXX import ili9341,LANDSCAPE
         from xpt2046 import xpt2046
         import espidf as esp
+
+        if lv_utils_available:
+            self.event_loop = lv_utils.event_loop(asynchronous=self.asynchronous, exception_sink=self.exception_sink)
 
         if self.orientation == ORIENT_PORTRAIT:
             print ("Running the ili9341 lvgl version in portait mode")
