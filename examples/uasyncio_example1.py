@@ -57,7 +57,7 @@ try:
     # Initialize driver
 
     SDL.init(w=HOR_RES, h=VER_RES, auto_refresh=False)
-    event_loop = lv_utils.event_loop(refresh_cb = SDL.refresh, asynchronous=True)
+    event_loop = lv_utils.event_loop(asynchronous=True)
 
     # Register SDL display driver.
 
@@ -78,7 +78,7 @@ try:
     indev_drv.init() 
     indev_drv.type = lv.INDEV_TYPE.POINTER
     indev_drv.read_cb = SDL.mouse_read
-    indev_drv.register();
+    indev_drv.register()
 
 except ImportError:
     pass
@@ -128,7 +128,7 @@ class MsgBox(lv.win):
         for element in [content, header]:
             element.add_event_cb(self.drag_event_handler, lv.EVENT.PRESSING, None)
 
-        self.opened = True;
+        self.opened = True
 
     def is_open(self):
         return self.opened

@@ -9,7 +9,7 @@
 #        SDL.init(auto_refresh=False)
 #        # Register SDL display driver.
 #        # Regsiter SDL mouse driver
-#        event_loop = lv_utils.event_loop(refresh_cb = SDL.refresh)
+#        event_loop = lv_utils.event_loop()
 #
 #
 # uasyncio example with SDL:
@@ -17,7 +17,7 @@
 #        SDL.init(auto_refresh=False)
 #        # Register SDL display driver.
 #        # Regsiter SDL mouse driver
-#        event_loop = lv_utils.event_loop(refresh_cb = SDL.refresh, asynchronous=True)
+#        event_loop = lv_utils.event_loop(asynchronous=True)
 #        uasyncio.Loop.run_forever()
 #
 # uasyncio example with ili9341:
@@ -49,6 +49,10 @@ except:
 default_timer_id = 0
 if usys.platform == 'pyboard':
     # stm32 only supports SW timer -1
+    default_timer_id = -1
+    
+if usys.platform == 'rp2':
+    # rp2 only supports SW timer -1
     default_timer_id = -1
 
 # Try importing uasyncio, if available
@@ -153,8 +157,5 @@ class event_loop():
             
 
     def default_exception_sink(self, e):
-        exc = usys.exc_info()
-        print('ERROR! %s: %s\n%s' % (
-            exc[0].__name__,
-            exc[1],
-            exc[2] if exc[2] else ''))
+        usys.print_exception(e)
+        event_loop.current_instance().deinit()

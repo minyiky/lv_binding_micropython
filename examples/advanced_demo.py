@@ -250,7 +250,15 @@ class AnimatedChart(lv.chart):
             ready_cb=lambda a:self.anim_phase1(),
             time=(self.min * self.factor) // 100,
         )
-
+class Page_Text:
+    def __init__(self, app, page):
+        self.app = app
+        self.page = page
+        self.page.set_flex_flow(lv.FLEX_FLOW.ROW)
+        self.page.set_flex_align(lv.FLEX_ALIGN.SPACE_EVENLY, lv.FLEX_ALIGN.CENTER, lv.FLEX_ALIGN.CENTER)
+        self.ta = lv.textarea(self.page)
+        self.ta.set_height(lv.pct(100))
+        self.ta.set_width(lv.pct(100))
 
 class Page_Chart:
     def __init__(self, app, page):
@@ -287,7 +295,6 @@ class Page_Chart:
         self.slider.set_value(self.chart.factor, 0)
         self.slider.add_event_cb(on_slider_changed, lv.EVENT.VALUE_CHANGED, None)
 
-
 class Screen_Main(lv.obj):
     def __init__(self, app, *args, **kwds):
         self.app = app
@@ -296,6 +303,7 @@ class Screen_Main(lv.obj):
         self.tabview = lv.tabview(self, lv.DIR.TOP, 20)
         self.page_simple = Page_Simple(self.app, self.tabview.add_tab("Simple"))
         self.page_buttons = Page_Buttons(self.app, self.tabview.add_tab("Buttons"))
+        self.page_text = Page_Text(self.app, self.tabview.add_tab("Text"))
         self.page_chart = Page_Chart(self.app, self.tabview.add_tab("Chart"))
 
 
@@ -304,20 +312,25 @@ class AdvancedDemoApplication:
 
         import SDL
 
-        SDL.init(auto_refresh=False)
-        self.event_loop = event_loop(refresh_cb = SDL.refresh)
+        WIDTH = 480
+        HEIGHT = 320
+        ZOOM = 1
+        FULLSCREEN = False
+
+        SDL.init(w=WIDTH, h=HEIGHT, zoom=ZOOM, fullscreen=FULLSCREEN, auto_refresh=False)
+        self.event_loop = event_loop()
 
         # Register SDL display driver.
 
         disp_buf1 = lv.disp_draw_buf_t()
-        buf1_1 = bytes(480 * 10)
+        buf1_1 = bytes(WIDTH * 10)
         disp_buf1.init(buf1_1, None, len(buf1_1)//4)
         disp_drv = lv.disp_drv_t()
         disp_drv.init()
         disp_drv.draw_buf = disp_buf1
         disp_drv.flush_cb = SDL.monitor_flush
-        disp_drv.hor_res = 480
-        disp_drv.ver_res = 320
+        disp_drv.hor_res = WIDTH
+        disp_drv.ver_res = HEIGHT
         disp_drv.register()
 
         # Regsiter SDL mouse driver
@@ -326,7 +339,17 @@ class AdvancedDemoApplication:
         indev_drv.init() 
         indev_drv.type = lv.INDEV_TYPE.POINTER
         indev_drv.read_cb = SDL.mouse_read
-        indev_drv.register()
+        self.mouse = indev_drv.register()
+
+        # Register keyboard driver
+
+        keyboard_drv = lv.indev_drv_t()
+        keyboard_drv.init()
+        keyboard_drv.type = lv.INDEV_TYPE.KEYPAD
+        keyboard_drv.read_cb = SDL.keyboard_read
+        self.keyboard = keyboard_drv.register()
+        self.keyboard.set_group(self.group)
+        
         
     def init_gui_esp32(self):
 
@@ -383,11 +406,37 @@ class AdvancedDemoApplication:
         indev_drv.read_cb = lcd.ts_read
         indev_drv.register()
 
+    def init_gui_rp2(self):
+        import xpt2046
+        import st77xx
+        if sys.platform!='rp2': raise ImportError('Only works on the rp2 platform.')
+        print('Using RP2 GUI')
+        spi=machine.SPI(
+            1,
+            baudrate=24_000_000,
+            polarity=0,
+            phase=0,
+            sck=machine.Pin(10,machine.Pin.OUT),
+            mosi=machine.Pin(11,machine.Pin.OUT),
+            miso=machine.Pin(12,machine.Pin.IN)
+        )
+        self.disp=st77xx.St7789(rot=st77xx.ST77XX_INV_LANDSCAPE,res=(240,320),spi=spi,cs=9,dc=8,bl=13,rst=15,rp2_dma=None)
+        self.disp.set_backlight(100)
+        self.touch=xpt2046.Xpt2046(spi=spi,cs=16,rot=xpt2046.XPT2046_INV_LANDSCAPE)
+
     def init_gui(self):
+
+        self.group = lv.group_create()
+        self.group.set_default()
 
         # Identify platform and initialize it
 
         if not event_loop.is_running():
+            try:
+                self.init_gui_rp2()
+            except ImportError:
+                pass
+
             try:
                 self.init_gui_esp32()
             except ImportError:
@@ -403,6 +452,7 @@ class AdvancedDemoApplication:
             except ImportError:
                 pass
 
+
         # Create the main screen and load it.
 
         self.screen_main = Screen_Main(self)
@@ -415,3 +465,4 @@ app.init_gui()
 # if __name__ == '__main__':
 #    while True:
 #        pass
+    

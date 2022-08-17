@@ -96,8 +96,9 @@ class ili9XXX:
 
     def __init__(self,
         miso=5, mosi=18, clk=19, cs=13, dc=12, rst=4, power=14, backlight=15, backlight_on=0, power_on=0,
-        spihost=esp.HSPI_HOST, mhz=40, factor=4, hybrid=True, width=240, height=320, start_x=0, start_y=0,
-        invert=False, double_buffer=True, half_duplex=True, display_type=0, asynchronous=False, initialize=True
+        spihost=esp.HSPI_HOST, spimode=0, mhz=40, factor=4, hybrid=True, width=240, height=320, start_x=0, start_y=0,
+        invert=False, double_buffer=True, half_duplex=True, display_type=0, asynchronous=False, initialize=True,
+        color_format=None
     ):
 
         # Initializations
@@ -124,6 +125,7 @@ class ili9XXX:
         self.backlight_on = backlight_on
         self.power_on = power_on
         self.spihost = spihost
+        self.spimode = spimode
         self.mhz = mhz
         self.factor = factor
         self.hybrid = hybrid
@@ -166,6 +168,8 @@ class ili9XXX:
         self.disp_drv.monitor_cb = self.monitor
         self.disp_drv.hor_res = self.width
         self.disp_drv.ver_res = self.height
+        if color_format:
+            self.disp_drv.color_format = color_format
 
         if self.initialize:
             self.init()
@@ -196,7 +200,7 @@ class ili9XXX:
 
         devcfg = esp.spi_device_interface_config_t({
             "clock_speed_hz": self.mhz*1000*1000,   # Clock out at DISP_SPI_MHZ MHz
-            "mode": 0,                              # SPI mode 0
+            "mode": self.spimode,                   # SPI mode 0 by default
             "spics_io_num": self.cs,                # CS pin
             "queue_size": 2,
             "flags": devcfg_flags,
@@ -282,7 +286,7 @@ class ili9XXX:
         if lv_utils.event_loop.is_running():
             self.event_loop.deinit()
 
-        self.disp_drv.remove()
+        self.disp.remove()
 
         if self.spi:
 
@@ -406,7 +410,7 @@ class ili9XXX:
             esp.gpio_set_level(self.backlight, self.backlight_on)
 
         # Register the driver
-        self.disp_drv.register()
+        self.disp = self.disp_drv.register()
 
 
     def init(self):
@@ -536,17 +540,15 @@ class ili9341(ili9XXX):
 
     def __init__(self,
         miso=5, mosi=18, clk=19, cs=13, dc=12, rst=4, power=14, backlight=15, backlight_on=0, power_on=0,
-        spihost=esp.HSPI_HOST, mhz=40, factor=4, hybrid=True, width=240, height=320, start_x=0, start_y=0,
+        spihost=esp.HSPI_HOST, spimode=0, mhz=40, factor=4, hybrid=True, width=240, height=320, start_x=0, start_y=0,
         colormode=COLOR_MODE_BGR, rot=PORTRAIT, invert=False, double_buffer=True, half_duplex=True,
-        asynchronous=False, initialize=True
+        asynchronous=False, initialize=True, color_format=lv.COLOR_FORMAT.NATIVE_REVERSE
     ):
 
         # Make sure Micropython was built such that color won't require processing before DMA
 
         if lv.color_t.__SIZE__ != 2:
             raise RuntimeError('ili9341 micropython driver requires defining LV_COLOR_DEPTH=16')
-        if colormode == COLOR_MODE_BGR and not hasattr(lv.color_t().ch, 'green_l'):
-            raise RuntimeError('ili9341 BGR color mode requires defining LV_COLOR_16_SWAP=1')
 
         self.display_name = 'ILI9341'
 
@@ -581,16 +583,18 @@ class ili9341(ili9XXX):
         ]
 
         super().__init__(miso=miso, mosi=mosi, clk=clk, cs=cs, dc=dc, rst=rst, power=power, backlight=backlight,
-            backlight_on=backlight_on, power_on=power_on, spihost=spihost, mhz=mhz, factor=factor, hybrid=hybrid,
+            backlight_on=backlight_on, power_on=power_on, spihost=spihost, spimode=spimode, mhz=mhz, factor=factor, hybrid=hybrid,
             width=width, height=height, start_x=start_x, start_y=start_y, invert=invert, double_buffer=double_buffer,
-            half_duplex=half_duplex, display_type=DISPLAY_TYPE_ILI9341, asynchronous=asynchronous, initialize=initialize)
+            half_duplex=half_duplex, display_type=DISPLAY_TYPE_ILI9341, asynchronous=asynchronous, initialize=initialize,
+            color_format=color_format)
 
 class ili9488(ili9XXX):
 
     def __init__(self,
         miso=5, mosi=18, clk=19, cs=13, dc=12, rst=4, power=14, backlight=15, backlight_on=0, power_on=0,
-        spihost=esp.HSPI_HOST, mhz=40, factor=8, hybrid=True, width=320, height=480, colormode=COLOR_MODE_RGB,
-        rot=PORTRAIT, invert=False, double_buffer=True, half_duplex=True, asynchronous=False, initialize=True
+        spihost=esp.HSPI_HOST, spimode=0, mhz=40, factor=8, hybrid=True, width=320, height=480, colormode=COLOR_MODE_RGB,
+        rot=PORTRAIT, invert=False, double_buffer=True, half_duplex=True, asynchronous=False, initialize=True,
+        color_format=None
     ):
 
         if lv.color_t.__SIZE__ != 4:
@@ -627,9 +631,9 @@ class ili9488(ili9XXX):
         ]
 
         super().__init__(miso=miso, mosi=mosi, clk=clk, cs=cs, dc=dc, rst=rst, power=power, backlight=backlight,
-            backlight_on=backlight_on, power_on=power_on, spihost=spihost, mhz=mhz, factor=factor, hybrid=hybrid,
+            backlight_on=backlight_on, power_on=power_on, spihost=spihost, spimode=spimode, mhz=mhz, factor=factor, hybrid=hybrid,
             width=width, height=height, invert=invert, double_buffer=double_buffer, half_duplex=half_duplex,
-            display_type=DISPLAY_TYPE_ILI9488, asynchronous=asynchronous, initialize=initialize)
+            display_type=DISPLAY_TYPE_ILI9488, asynchronous=asynchronous, initialize=initialize, color_format=color_format)
 
 class gc9a01(ili9XXX):
 
@@ -638,8 +642,9 @@ class gc9a01(ili9XXX):
 
     def __init__(self,
         miso=5, mosi=18, clk=19, cs=13, dc=12, rst=4, power=14, backlight=15, backlight_on=0, power_on=0,
-        spihost=esp.HSPI_HOST, mhz=60, factor=4, hybrid=True, width=240, height=240, colormode=COLOR_MODE_RGB,
-        rot=PORTRAIT, invert=False, double_buffer=True, half_duplex=True, asynchronous=False, initialize=True
+        spihost=esp.HSPI_HOST, spimode=0, mhz=60, factor=4, hybrid=True, width=240, height=240, colormode=COLOR_MODE_RGB,
+        rot=PORTRAIT, invert=False, double_buffer=True, half_duplex=True, asynchronous=False, initialize=True,
+        color_format=None
     ):
 
         if lv.color_t.__SIZE__ != 2:
@@ -712,9 +717,9 @@ class gc9a01(ili9XXX):
         ]
 
         super().__init__(miso=miso, mosi=mosi, clk=clk, cs=cs, dc=dc, rst=rst, power=power, backlight=backlight,
-            backlight_on=backlight_on, power_on=power_on, spihost=spihost, mhz=mhz, factor=factor, hybrid=hybrid,
+            backlight_on=backlight_on, power_on=power_on, spihost=spihost, spimode=spimode, mhz=mhz, factor=factor, hybrid=hybrid,
             width=width, height=height, invert=invert, double_buffer=double_buffer, half_duplex=half_duplex,
-            display_type=DISPLAY_TYPE_GC9A01, asynchronous=asynchronous, initialize=initialize)
+            display_type=DISPLAY_TYPE_GC9A01, asynchronous=asynchronous, initialize=initialize, color_format=color_format)
 
 class st7789(ili9XXX):
 
@@ -725,16 +730,14 @@ class st7789(ili9XXX):
 
     def __init__(self,
         miso=-1, mosi=19, clk=18, cs=5, dc=16, rst=23, power=-1, backlight=4, backlight_on=1, power_on=0,
-        spihost=esp.HSPI_HOST, mhz=40, factor=4, hybrid=True, width=320, height=240, start_x=0, start_y=0,
+        spihost=esp.HSPI_HOST, spimode=0, mhz=40, factor=4, hybrid=True, width=320, height=240, start_x=0, start_y=0,
         colormode=COLOR_MODE_BGR, rot=PORTRAIT, invert=True, double_buffer=True, half_duplex=True,
-        asynchronous=False, initialize=True):
+        asynchronous=False, initialize=True, color_format=lv.COLOR_FORMAT.NATIVE_REVERSE):
 
         # Make sure Micropython was built such that color won't require processing before DMA
 
         if lv.color_t.__SIZE__ != 2:
             raise RuntimeError('st7789 micropython driver requires defining LV_COLOR_DEPTH=16')
-        if colormode == COLOR_MODE_BGR and not hasattr(lv.color_t().ch, 'green_l'):
-            raise RuntimeError('st7789 BGR color mode requires defining LV_COLOR_16_SWAP=1')
 
         self.display_name = 'ST7789'
 
@@ -765,10 +768,10 @@ class st7789(ili9XXX):
         ]
 
         super().__init__(miso=miso, mosi=mosi, clk=clk, cs=cs, dc=dc, rst=rst, power=power, backlight=backlight,
-            backlight_on=backlight_on, power_on=power_on, spihost=spihost, mhz=mhz, factor=factor, hybrid=hybrid,
+            backlight_on=backlight_on, power_on=power_on, spihost=spihost, spimode=spimode, mhz=mhz, factor=factor, hybrid=hybrid,
             width=width, height=height, start_x=start_x, start_y=start_y, invert=invert, double_buffer=double_buffer,
             half_duplex=half_duplex, display_type=DISPLAY_TYPE_ST7789, asynchronous=asynchronous,
-            initialize=initialize)
+            initialize=initialize, color_format=color_format)
 
 class st7735(ili9XXX):
 
@@ -779,16 +782,14 @@ class st7735(ili9XXX):
 
     def __init__(self,
         miso=-1, mosi=19, clk=18, cs=13, dc=12, rst=4, power=-1, backlight=15, backlight_on=1, power_on=0,
-        spihost=esp.HSPI_HOST, mhz=40, factor=4, hybrid=True, width=128, height=160, start_x=0, start_y=0,
+        spihost=esp.HSPI_HOST, spimode=0, mhz=40, factor=4, hybrid=True, width=128, height=160, start_x=0, start_y=0,
         colormode=COLOR_MODE_RGB, rot=PORTRAIT, invert=False, double_buffer=True, half_duplex=True,
-        asynchronous=False, initialize=True):
+        asynchronous=False, initialize=True, color_format=lv.COLOR_FORMAT.NATIVE_REVERSE):
 
         # Make sure Micropython was built such that color won't require processing before DMA
 
         if lv.color_t.__SIZE__ != 2:
             raise RuntimeError('st7735 micropython driver requires defining LV_COLOR_DEPTH=16')
-        if colormode == COLOR_MODE_BGR and not hasattr(lv.color_t().ch, 'green_l'):
-            raise RuntimeError('st7735 BGR color mode requires defining LV_COLOR_16_SWAP=1')
 
         self.display_name = 'ST7735'
 
@@ -823,7 +824,7 @@ class st7735(ili9XXX):
         ]
 
         super().__init__(miso=miso, mosi=mosi, clk=clk, cs=cs, dc=dc, rst=rst, power=power, backlight=backlight,
-            backlight_on=backlight_on, power_on=power_on, spihost=spihost, mhz=mhz, factor=factor, hybrid=hybrid,
+            backlight_on=backlight_on, power_on=power_on, spihost=spihost, spimode=spimode, mhz=mhz, factor=factor, hybrid=hybrid,
             width=width, height=height, start_x=start_x, start_y=start_y, invert=invert, double_buffer=double_buffer,
             half_duplex=half_duplex, display_type=DISPLAY_TYPE_ST7735, asynchronous=asynchronous,
-            initialize=initialize)
+            initialize=initialize, color_format=color_format)
