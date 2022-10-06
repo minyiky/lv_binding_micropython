@@ -20,7 +20,6 @@
 ##############################################################################
 
 DELAY_MS=25
-MAX_CHILDREN=100
 
 import usys
 usys.path.append('') # See: https://github.com/micropython/micropython/issues/6419
@@ -32,7 +31,7 @@ import lvgl as lv
 import lv_utils
 import display_driver_utils
 
-events = [lv.EVENT.SCROLL, lv.EVENT.CLICKED, lv.EVENT.VALUE_CHANGED, lv.EVENT.READY]
+events = [lv.EVENT.SCROLL, lv.EVENT.CLICKED, lv.EVENT.VALUE_CHANGED, lv.EVENT.READY, lv.EVENT.FOCUSED]
 
 class ExceptionHandler:
     def __init__(self):
@@ -90,7 +89,7 @@ def run():
             usys.argv[0] = script_name
             del usys.argv[1]
             exec(file_string, {'__file__': script_name, 'lv': lv})
-            time.sleep_ms(DELAY_MS)
+            time.sleep_ms(DELAY_MS * 2)
             gc.collect()
             lv.scr_act().tree_walk(collect_objects, None)
             send_events()
