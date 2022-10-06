@@ -5,7 +5,6 @@
 # - On print extensions, print the reflected internal representation of the object (worth the extra ROM?)
 # - Verify that when mp_obj is given it is indeed the right type (mp_lv_obj_t). Report error if not. can be added to mp_to_lv.
 # - Implement inheritance instead of embed base methods (how? seems it's not supported, see https://github.com/micropython/micropython/issues/1159)
-# - Prevent writing to const fields, but allow reading
 # - When converting mp to ptr (and vice versa), verify that types are compatible. Now all pointers are casted to void*.
 
 from __future__ import print_function
@@ -1817,16 +1816,20 @@ def try_generate_struct(struct_name, struct):
                 format(struct_name = struct_name, field = sanitize(decl.name), lv_callback = lv_callback, funcptr = lv_to_mp_funcptr[type_name], user_data = full_user_data, type_name = type_name, cast = cast))
         else:
             user_data = None
+            # Only allow write to non-const members
+            is_writeable = hasattr(decl.type, 'quals') and 'const' not in decl.type.quals
             # Arrays must be handled by memcpy, otherwise we would get "assignment to expression with array type" error
             if isinstance(decl.type, c_ast.ArrayDecl):
                 memcpy_size = 'sizeof(%s)*%s' % (gen.visit(decl.type.type), gen.visit(decl.type.dim))
-                write_cases.append('case MP_QSTR_{field}: memcpy((void*)&data->{field}, {cast}{convertor}(dest[1]), {size}); break; // converting to {type_name}'.
-                    format(field = sanitize(decl.name), convertor = mp_to_lv_convertor, type_name = type_name, cast = cast, size = memcpy_size))
+                if is_writeable:
+                    write_cases.append('case MP_QSTR_{field}: memcpy((void*)&data->{field}, {cast}{convertor}(dest[1]), {size}); break; // converting to {type_name}'.
+                        format(field = sanitize(decl.name), convertor = mp_to_lv_convertor, type_name = type_name, cast = cast, size = memcpy_size))
                 read_cases.append('case MP_QSTR_{field}: dest[0] = {convertor}({cast}data->{field}); break; // converting from {type_name}'.
                     format(field = sanitize(decl.name), convertor = lv_to_mp_convertor, type_name = type_name, cast = cast))
             else:
-                write_cases.append('case MP_QSTR_{field}: data->{field} = {cast}{convertor}(dest[1]); break; // converting to {type_name}'.
-                    format(field = sanitize(decl.name), convertor = mp_to_lv_convertor, type_name = type_name, cast = cast))
+                if is_writeable:
+                    write_cases.append('case MP_QSTR_{field}: data->{field} = {cast}{convertor}(dest[1]); break; // converting to {type_name}'.
+                        format(field = sanitize(decl.name), convertor = mp_to_lv_convertor, type_name = type_name, cast = cast))
                 read_cases.append('case MP_QSTR_{field}: dest[0] = {convertor}({cast}data->{field}); break; // converting from {type_name}'.
                     format(field = sanitize(decl.name), convertor = lv_to_mp_convertor, type_name = type_name, cast = cast))
     print('''
@@ -2193,6 +2196,24 @@ def gen_callback_func(func, func_name = None, user_data_argument = False):
     # print('/* --> callback: %s */' % (gen.visit(func)))
     callback_metadata[func_name] = {'args':[]}
     args = func.args.params
+    enumerated_args = []
+    for i, arg in enumerate(args):
+        arg_name = f'arg{i}'
+        new_arg = c_ast.Decl(
+                    name=arg_name,
+                    quals=arg.quals,
+                    storage=[],
+                    funcspec=[],
+                    type=copy.deepcopy(arg.type),
+                    init=None,
+                    bitsize=None)
+        t = new_arg
+        while hasattr(t, 'type'):
+            if hasattr(t.type, 'declname'):
+                t.type.declname = arg_name
+            t = t.type
+        enumerated_args.append(new_arg)
+        # print(f'/* --> {gen.visit(new_arg)} */')
     if not func_name: func_name = get_arg_name(func.type)
     # print('/* --> callback: func_name = %s */' % func_name)
     if is_global_callback(func):
@@ -2200,7 +2221,7 @@ def gen_callback_func(func, func_name = None, user_data_argument = False):
     else:
         user_data = get_user_data(func, func_name)
 
-        if user_data_argument and len(args) > 0 and gen.visit(args[-1]) == 'void *':
+        if user_data_argument and len(args) > 0 and gen.visit(args[-1].type) == 'void *':
             full_user_data = 'arg%d' % (len(args) - 1)
         elif user_data:
             full_user_data = 'arg0->%s' % user_data
@@ -2238,7 +2259,7 @@ GENMPY_UNUSED STATIC {return_type} {func_name}_callback({func_args})
         func_prototype = gen.visit(func),
         func_name = sanitize(func_name),
         return_type = return_type,
-        func_args = ', '.join(["%s arg%s" % (gen.visit(arg.type), i) for i,arg in enumerate(args)]),
+        func_args = ', '.join([(gen.visit(arg)) for arg in enumerated_args]),
         num_args=len(args),
         build_args="\n    ".join([build_callback_func_arg(arg, i, func, func_name=func_name) for i,arg in enumerate(args)]),
         user_data=full_user_data,

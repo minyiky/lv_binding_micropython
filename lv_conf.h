@@ -38,7 +38,7 @@
 #define LV_USE_BUILTIN_MALLOC 0
 #if LV_USE_BUILTIN_MALLOC
     /*Size of the memory available for `lv_malloc()` in bytes (>= 2kB)*/
-    #define LV_MEM_SIZE (48 * 1024)          /*[bytes]*/
+    #define LV_MEM_SIZE (128U * 1024U)          /*[bytes]*/
 
     /*Set an address for the memory pool instead of allocating it as a normal array. Can be in external SRAM too.*/
     #define LV_MEM_ADR 0     /*0: unused*/
@@ -151,11 +151,11 @@
 /*Use SDL renderer API*/
 #define LV_USE_DRAW_SDL 0
 #if LV_USE_DRAW_SDL
-    #define LV_DARW_SDL_INCLUDE_PATH <SDL2/SDL.h>
+    #define LV_DRAW_SDL_INCLUDE_PATH <SDL2/SDL.h>
     /*Texture cache size, 8MB by default*/
-    #define LV_DARW_SDL_LRU_SIZE (1024 * 1024 * 8)
+    #define LV_DRAW_SDL_LRU_SIZE (1024 * 1024 * 8)
     /*Custom blend mode for mask drawing, disable if you need to link with older SDL2 lib*/
-    #define LV_DARW_SDL_CUSTOM_BLEND_MODE (SDL_VERSION_ATLEAST(2, 0, 6))
+    #define LV_DRAW_SDL_CUSTOM_BLEND_MODE (SDL_VERSION_ATLEAST(2, 0, 6))
 #endif
 
 /*=====================
@@ -217,6 +217,10 @@
     /*1: Print the log with 'printf';
     *0: User need to register a callback with `lv_log_register_print_cb()`*/
     #define LV_LOG_PRINTF 0
+
+    /*1: Enable print timestamp;
+     *0: Disable print timestamp*/
+    #define LV_LOG_USE_TIMESTAMP 1
 
     /*Enable/disable LV_LOG_TRACE in modules that produces a huge number of logs*/
     #define LV_LOG_TRACE_MEM        1
@@ -405,7 +409,7 @@
 #define LV_TXT_ENC LV_TXT_ENC_UTF8
 
 /*Can break (wrap) texts on these chars*/
-#define LV_TXT_BREAK_CHARS " ,.;:-_"
+#define LV_TXT_BREAK_CHARS " ,.;:-_)]}"
 
 /*If a word is at least this long, will break wherever "prettiest"
  *To disable, set to a value <= 0*/
@@ -439,7 +443,7 @@
 #define LV_USE_ARABIC_PERSIAN_CHARS 1
 
 /*==================
- *  WIDGET USAGE
+ * WIDGETS
  *================*/
 
 /*Documentation of the widgets: https://docs.lvgl.io/latest/en/html/widgets/index.html*/
@@ -503,9 +507,6 @@
 #define LV_USE_MSGBOX     1
 
 #define LV_USE_ROLLER     1   /*Requires: lv_label*/
-#if LV_USE_ROLLER
-    #define LV_ROLLER_INF_PAGES 7 /*Number of extra "pages" when the roller is infinite*/
-#endif
 
 #define LV_USE_SLIDER     1   /*Requires: lv_bar*/
 
@@ -606,7 +607,7 @@
 #endif
 
 /*PNG decoder library*/
-#define LV_USE_PNG 0
+#define LV_USE_PNG 1
 
 /*BMP decoder library*/
 #define LV_USE_BMP 1
@@ -643,6 +644,15 @@
     #endif
 #endif
 
+/* Built-in TTF decoder */
+#ifndef LV_USE_TINY_TTF
+    #define LV_USE_TINY_TTF 1
+    #if LV_USE_TINY_TTF
+        /* Enable loading TTF data from files */
+        #define LV_TINY_TTF_FILE_SUPPORT 1
+    #endif
+#endif
+
 /*Rlottie library*/
 #ifdef MICROPY_RLOTTIE
     #define LV_USE_RLOTTIE 1
@@ -652,15 +662,20 @@
 
 /*FFmpeg library for image decoding and playing videos
  *Supports all major image formats so do not enable other image decoder with it*/
-#define LV_USE_FFMPEG 0
+#ifdef MICROPY_FFMPEG
+    #define LV_USE_FFMPEG 1
+#else
+    #define LV_USE_FFMPEG 0
+#endif
+
 #if LV_USE_FFMPEG
     /*Dump input information to stderr*/
     #define LV_FFMPEG_DUMP_FORMAT 0
 #endif
 
-/*================
+/*==================
  * OTHERS
- *================*/
+ *==================*/
 
 /*1: Enable API to take snapshot for object*/
 #define LV_USE_SNAPSHOT 1
@@ -675,7 +690,7 @@
 #define LV_USE_FRAGMENT 0
 
 /*1: Support using images as font in label or span widgets */
-#define LV_USE_IMGFONT 0
+#define LV_USE_IMGFONT 1
 #if LV_USE_IMGFONT
     /*Imgfont image file path maximum length*/
     #define LV_IMGFONT_PATH_MAX_LEN 64
@@ -689,7 +704,7 @@
 
 /*1: Enable Pinyin input method*/
 /*Requires: lv_keyboard*/
-#define LV_USE_IME_PINYIN 0
+#define LV_USE_IME_PINYIN 1
 #if LV_USE_IME_PINYIN
     /*1: Use default thesaurus*/
     /*If you do not use the default thesaurus, be sure to use `lv_ime_pinyin` after setting the thesauruss*/
@@ -704,6 +719,17 @@
         #define LV_IME_PINYIN_K9_CAND_TEXT_NUM 3
     #endif // LV_IME_PINYIN_USE_K9_MODE
 #endif
+
+/*1: Enable file explorer*/
+/*Requires: lv_table*/
+#define LV_USE_FILE_EXPLORER                     1
+#if LV_USE_FILE_EXPLORER
+    /*Maximum length of path*/
+    #define LV_FILE_EXPLORER_PATH_MAX_LEN        (128)
+    /*Quick access bar, 1:use, 0:not use*/
+    /*Requires: lv_list*/
+    #define LV_FILE_EXPLORER_QUICK_ACCESS        1
+#endif  
 
 /*==================
 * EXAMPLES
